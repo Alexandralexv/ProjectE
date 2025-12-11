@@ -1,0 +1,22 @@
+.about {
+  padding: 0 100px;
+  text-align: center;
+  margin: 80px 0 100px;
+}
+
+.about__title {
+  margin-bottom: 30px;
+}
+
+.about__text {
+  max-width: 800px;
+  margin: 0 auto;
+  line-height: 1.6;
+  font-size: 1.2em;
+}
+
+@media (max-width: 1024px) {
+  .about {
+    padding: 0 50px;
+  }
+}

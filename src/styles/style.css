@@ -1,0 +1,8 @@
+@import url("./global.css");
+
+@import url("./header/header.css");
+@import url("./about/about.css");
+@import url("./services/services.css");
+@import url("./callback/callback.css");
+@import url("./footer/footer.css");
+@import url("./id.css");

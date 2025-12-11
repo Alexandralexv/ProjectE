@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Панель управления заказами</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 1000px;
+        margin: 20px auto;
+      }
+      h1 {
+        margin-bottom: 10px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        font-size: 14px;
+      }
+      th {
+        background: #f2f2f2;
+      }
+      .login-box {
+        border: 1px solid #ccc;
+        padding: 15px;
+        max-width: 300px;
+      }
+      .hidden {
+        display: none;
+      }
+      .actions button {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Панель управления заказами</h1>
+
+    <div id="login-section" class="login-box">
+      <h2>Вход</h2>
+      <form id="login-form">
+        <div>
+          <label>Логин</label><br />
+          <input type="text" name="username" value="admin" required />
+        </div>
+        <div>
+          <label>Пароль</label><br />
+          <input type="password" name="password" required />
+        </div>
+        <button type="submit">Войти</button>
+      </form>
+      <p id="login-error" style="color: red"></p>
+    </div>
+
+    <div id="orders-section" class="hidden">
+      <div>
+        <span id="current-user-info"></span>
+        <button id="logout-btn">Выйти</button>
+      </div>
+
+      <h2>Статистика</h2>
+      <div id="stats-box">Загрузка статистики...</div>
+
+      <h2>Заказы</h2>
+
+      <div id="orders-filters">
+        <label>
+          Поиск:
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Имя, телефон, email, услуга..."
+          />
+        </label>
+        <label>
+          Статус:
+          <select id="status-filter">
+            <option value="">Все</option>
+            <option value="NEW">NEW</option>
+            <option value="IN_PROGRESS">IN_PROGRESS</option>
+            <option value="DONE">DONE</option>
+            <option value="CANCELED">CANCELED</option>
+          </select>
+        </label>
+        <label>
+          Сортировка:
+          <select id="sort-select">
+            <option value="created_at_desc">Дата (новые сверху)</option>
+            <option value="created_at_asc">Дата (старые сверху)</option>
+            <option value="customer_name_asc">Имя (А–Я)</option>
+            <option value="customer_name_desc">Имя (Я–А)</option>
+            <option value="status_asc">Статус (A–Z)</option>
+            <option value="status_desc">Статус (Z–A)</option>
+          </select>
+        </label>
+        <button id="apply-filters-btn">Применить</button>
+      </div>
+
+      <table id="orders-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Клиент</th>
+            <th>Телефон</th>
+            <th>Email</th>
+            <th>Услуги</th>
+            <th>Сообщение</th>
+            <th>Статус</th>
+            <th>Создан</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <h2>Пользователи</h2>
+
+      <div id="users-section">
+        <h3>Создание пользователя</h3>
+        <form id="create-user-form">
+          <div>
+            <label>Логин</label><br />
+            <input type="text" name="username" required />
+          </div>
+          <div>
+            <label>Пароль</label><br />
+            <input type="password" name="password" required />
+          </div>
+          <div>
+            <label>ФИО</label><br />
+            <input type="text" name="full_name" />
+          </div>
+          <div>
+            <label>Роль</label><br />
+            <select name="role">
+              <option value="MANAGER">MANAGER</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+          <button type="submit">Создать</button>
+          <p id="create-user-error" style="color: red"></p>
+          <p id="create-user-success" style="color: green"></p>
+        </form>
+
+        <h3>Список пользователей</h3>
+        <table id="users-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Логин</th>
+              <th>ФИО</th>
+              <th>Роль</th>
+              <th>Создан</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h3>График: Распределение заказов по статусам</h3>
+      <canvas id="statusChart" width="400" height="200"></canvas>
+
+      <h3>График: Количество заказов по времени</h3>
+      <canvas id="timelineChart" width="400" height="200"></canvas>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:3000";
+
+      function getToken() {
+        return localStorage.getItem("token");
+      }
+      function setToken(token) {
+        localStorage.setItem("token", token);
+      }
+      function clearToken() {
+        localStorage.removeItem("token");
+        localStorage.removeItem("username");
+        localStorage.removeItem("role");
+      }
+      function setUserInfo(username, role) {
+        localStorage.setItem("username", username);
+        localStorage.setItem("role", role);
+      }
+      function getUserRole() {
+        return localStorage.getItem("role");
+      }
+      function getUsername() {
+        return localStorage.getItem("username");
+      }
+
+      function showLogin() {
+        document.getElementById("login-section").classList.remove("hidden");
+        document.getElementById("orders-section").classList.add("hidden");
+      }
+
+      function showOrders() {
+        document.getElementById("login-section").classList.add("hidden");
+        document.getElementById("orders-section").classList.remove("hidden");
+
+        const userInfoEl = document.getElementById("current-user-info");
+        if (userInfoEl) {
+          const name = getUsername() || "неизвестный";
+          const role = getUserRole() || "UNKNOWN";
+          userInfoEl.textContent = `Вы вошли как ${name} (${role})`;
+        }
+
+        loadStats();
+        loadOrders();
+        if (getUserRole() === "ADMIN") {
+          loadUsers();
+          document.getElementById("users-section").style.display = "block";
+        } else {
+          // менеджеру не показываем управление пользователями
+          const usersSection = document.getElementById("users-section");
+          if (usersSection) {
+            usersSection.style.display = "none";
+          }
+        }
+      }
+
+      async function loadUsers() {
+        const token = getToken();
+        if (!token) return;
+
+        try {
+          const res = await fetch(API_BASE + "/users", {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          });
+
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              console.warn("Нет доступа к списку пользователей");
+              return;
+            }
+            alert("Ошибка загрузки пользователей");
+            return;
+          }
+
+          const users = await res.json();
+          renderUsers(users);
+        } catch (err) {
+          console.error("Ошибка загрузки пользователей:", err);
+        }
+      }
+
+      function renderUsers(users) {
+        const tbody = document.querySelector("#users-table tbody");
+        tbody.innerHTML = "";
+
+        users.forEach((u) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+      <td>${u.id}</td>
+      <td>${u.username}</td>
+      <td>${u.full_name || ""}</td>
+      <td>${u.role}</td>
+      <td>${new Date(u.created_at).toLocaleString()}</td>
+      <td>
+        <button data-id="${u.id}" class="delete-user-btn">Удалить</button>
+      </td>
+    `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll(".delete-user-btn").forEach((btn) => {
+          btn.addEventListener("click", onDeleteUserClick);
+        });
+      }
+
+      async function onDeleteUserClick(e) {
+        const id = e.target.dataset.id;
+        const token = getToken();
+        if (!confirm("Удалить пользователя " + id + "?")) return;
+
+        try {
+          const res = await fetch(`${API_BASE}/users/${id}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          });
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || "Не удалось удалить пользователя");
+            return;
+          }
+
+          alert("Пользователь удалён");
+          loadUsers();
+        } catch (err) {
+          console.error("Ошибка удаления пользователя:", err);
+          alert("Ошибка при удалении пользователя");
+        }
+      }
+
+      async function loadOrders() {
+        const token = getToken();
+        if (!token) return showLogin();
+
+        const searchInput = document.getElementById("search-input");
+        const statusFilter = document.getElementById("status-filter");
+        const sortSelect = document.getElementById("sort-select");
+
+        const params = new URLSearchParams();
+
+        if (searchInput && searchInput.value.trim() !== "") {
+          params.append("q", searchInput.value.trim());
+        }
+
+        if (statusFilter && statusFilter.value !== "") {
+          params.append("status", statusFilter.value);
+        }
+
+        if (sortSelect) {
+          const value = sortSelect.value; // например: created_at_desc
+          const [field, dir] = value.split("_");
+          params.append("sort", field);
+          params.append("direction", dir.toUpperCase());
+        }
+
+        const url =
+          API_BASE +
+          "/orders" +
+          (params.toString() ? "?" + params.toString() : "");
+
+        try {
+          const res = await fetch(url, {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          });
+          if (!res.ok) {
+            if (res.status === 401) {
+              clearToken();
+              showLogin();
+              return;
+            }
+            alert("Ошибка загрузки заказов");
+            return;
+          }
+          const orders = await res.json();
+          renderOrders(orders);
+          renderTimelineChart(orders);
+        } catch (err) {
+          console.error("Ошибка при загрузке заказов:", err);
+          alert("Не удалось загрузить заказы");
+        }
+      }
+
+      async function loadStats() {
+        const token = getToken();
+        if (!token) return;
+
+        const statsBox = document.getElementById("stats-box");
+        statsBox.textContent = "Загрузка статистики...";
+
+        try {
+          const res = await fetch(API_BASE + "/stats", {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          });
+
+          if (!res.ok) {
+            if (res.status === 401) {
+              clearToken();
+              showLogin();
+              return;
+            }
+            statsBox.textContent = "Не удалось загрузить статистику";
+            return;
+          }
+
+          const stats = await res.json();
+
+          const avgText =
+            stats.avgCompletionHours === null
+              ? "нет завершённых заказов"
+              : stats.avgCompletionHours.toFixed(2) + " ч";
+
+          statsBox.innerHTML = `
+      <p><strong>Всего заказов:</strong> ${stats.totalOrders}</p>
+      <p><strong>Статусы:</strong>
+        NEW: ${stats.statusCounts.NEW},
+        IN_PROGRESS: ${stats.statusCounts.IN_PROGRESS},
+        DONE: ${stats.statusCounts.DONE},
+        CANCELED: ${stats.statusCounts.CANCELED}
+      </p>
+      <p><strong>Пользователей в системе:</strong> ${stats.totalUsers}</p>
+      <p><strong>Среднее время выполнения заказа:</strong> ${avgText}</p>
+    `;
+          renderStatusChart(stats);
+        } catch (err) {
+          console.error("Ошибка при загрузке статистики:", err);
+          statsBox.textContent = "Ошибка при загрузке статистики";
+        }
+      }
+
+      function renderOrders(orders) {
+        const tbody = document.querySelector("#orders-table tbody");
+        tbody.innerHTML = "";
+        orders.forEach((o) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+          <td>${o.id}</td>
+          <td>${o.customer_name}</td>
+          <td>${o.customer_phone}</td>
+          <td>${o.customer_email || ""}</td>
+          <td>${o.services}</td>
+          <td>${o.message || ""}</td>
+          <td>
+            <select data-id="${o.id}" class="status-select">
+              <option value="NEW" ${
+                o.status === "NEW" ? "selected" : ""
+              }>NEW</option>
+              <option value="IN_PROGRESS" ${
+                o.status === "IN_PROGRESS" ? "selected" : ""
+              }>IN_PROGRESS</option>
+              <option value="DONE" ${
+                o.status === "DONE" ? "selected" : ""
+              }>DONE</option>
+              <option value="CANCELED" ${
+                o.status === "CANCELED" ? "selected" : ""
+              }>CANCELED</option>
+            </select>
+          </td>
+          <td>${new Date(o.created_at).toLocaleString()}</td>
+          <td class="actions">
+            <button data-id="${o.id}" class="save-status-btn">Сохранить</button>
+            <button data-id="${o.id}" class="delete-order-btn">Удалить</button>
+          </td>
+        `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll(".save-status-btn").forEach((btn) => {
+          btn.addEventListener("click", onSaveStatusClick);
+        });
+
+        tbody.querySelectorAll(".delete-order-btn").forEach((btn) => {
+          btn.addEventListener("click", onDeleteOrderClick);
+        });
+      }
+
+      async function onSaveStatusClick(e) {
+        const id = e.target.dataset.id;
+        const select = document.querySelector(
+          `.status-select[data-id="${id}"]`
+        );
+        const status = select.value;
+        const token = getToken();
+
+        try {
+          const res = await fetch(`${API_BASE}/orders/${id}/status`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + token,
+            },
+            body: JSON.stringify({ status }),
+          });
+          if (!res.ok) {
+            alert("Не удалось обновить статус");
+            return;
+          }
+          alert("Статус обновлён");
+        } catch (err) {
+          console.error("Ошибка обновления статуса:", err);
+          alert("Ошибка при обновлении статуса");
+        }
+      }
+
+      async function onDeleteOrderClick(e) {
+        const id = e.target.dataset.id;
+        const token = getToken();
+        if (!confirm("Удалить заказ " + id + "?")) return;
+
+        try {
+          const res = await fetch(`${API_BASE}/orders/${id}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          });
+          if (!res.ok) {
+            alert("Не удалось удалить заказ");
+            return;
+          }
+          alert("Заказ удалён");
+          loadOrders();
+        } catch (err) {
+          console.error("Ошибка удаления заказа:", err);
+          alert("Ошибка при удалении заказа");
+        }
+      }
+
+      document
+        .getElementById("login-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          const data = Object.fromEntries(formData.entries());
+          const errorEl = document.getElementById("login-error");
+          errorEl.textContent = "";
+
+          try {
+            const res = await fetch(API_BASE + "/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
+
+            if (!res.ok) {
+              errorEl.textContent = "Неверный логин или пароль";
+              return;
+            }
+
+            const result = await res.json();
+            setToken(result.token);
+            setUserInfo(result.username, result.role);
+            showOrders();
+          } catch (err) {
+            console.error("Ошибка логина:", err);
+            errorEl.textContent = "Ошибка соединения с сервером";
+          }
+        });
+
+      const createUserForm = document.getElementById("create-user-form");
+      if (createUserForm) {
+        createUserForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const token = getToken();
+          if (!token) {
+            alert("Сессия истекла, войдите снова");
+            showLogin();
+            return;
+          }
+
+          const formData = new FormData(createUserForm);
+          const data = Object.fromEntries(formData.entries());
+
+          const errorEl = document.getElementById("create-user-error");
+          const successEl = document.getElementById("create-user-success");
+          errorEl.textContent = "";
+          successEl.textContent = "";
+
+          try {
+            const res = await fetch(API_BASE + "/users", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + token,
+              },
+              body: JSON.stringify(data),
+            });
+
+            const result = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+              errorEl.textContent =
+                result.error || "Не удалось создать пользователя";
+              return;
+            }
+
+            successEl.textContent =
+              "Пользователь создан (ID: " + result.id + ")";
+            createUserForm.reset();
+            loadUsers();
+          } catch (err) {
+            console.error("Ошибка создания пользователя:", err);
+            errorEl.textContent = "Ошибка при создании пользователя";
+          }
+        });
+      }
+
+      document.getElementById("logout-btn").addEventListener("click", () => {
+        clearToken();
+        showLogin();
+      });
+
+      const applyFiltersBtn = document.getElementById("apply-filters-btn");
+      if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener("click", () => {
+          loadOrders();
+        });
+      }
+
+      // По Enter в поле поиска тоже применять фильтр
+      const searchInputEl = document.getElementById("search-input");
+      if (searchInputEl) {
+        searchInputEl.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            loadOrders();
+          }
+        });
+      }
+
+      let statusChart;
+      let timelineChart;
+
+      // Построение графика распределения заказов по статусам
+      function renderStatusChart(data) {
+        const ctx = document.getElementById("statusChart").getContext("2d");
+
+        const labels = Object.keys(data.statusCounts);
+        const counts = Object.values(data.statusCounts);
+
+        if (statusChart) statusChart.destroy();
+
+        statusChart = new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels,
+            datasets: [
+              {
+                data: counts,
+                backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#AAAAAA"],
+              },
+            ],
+          },
+        });
+      }
+
+      // Построение графика заказов по времени
+      function renderTimelineChart(orders) {
+        const ctx = document.getElementById("timelineChart").getContext("2d");
+
+        const byDate = {};
+
+        orders.forEach((o) => {
+          const d = o.created_at.substring(0, 10);
+          byDate[d] = (byDate[d] || 0) + 1;
+        });
+
+        const labels = Object.keys(byDate);
+        const values = Object.values(byDate);
+
+        if (timelineChart) timelineChart.destroy();
+
+        timelineChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Количество заказов",
+                data: values,
+                fill: false,
+                tension: 0.1,
+              },
+            ],
+          },
+        });
+      }
+
+      // При заходе на страницу пробуем сразу показать заказы, если токен есть
+      if (getToken()) {
+        showOrders();
+      } else {
+        showLogin();
+      }
+    </script>
+  </body>
+</html>

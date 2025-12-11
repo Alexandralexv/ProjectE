@@ -1,0 +1,127 @@
+.callback {
+  padding: 0 100px;
+  margin: 100px 0;
+  text-align: center;
+}
+
+.callback__main-title {
+  margin-bottom: 15px;
+}
+
+.callback__text {
+  max-width: 800px;
+  margin: 0 auto 60px;
+  line-height: 1.6;
+  font-size: 1.2em;
+}
+
+.callback__card {
+  max-width: 500px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px;
+  background: #e8e2d8;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid #c8a27c;
+}
+
+.callback__title {
+  font-family: "Orelega One", cursive;
+  font-size: 2rem;
+  color: #2d2d2d;
+  margin-bottom: 30px;
+  text-align: left;
+}
+
+.callback__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.callback__field {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.callback__field label {
+  margin-bottom: 8px;
+  font-family: "Montserrat", sans-serif;
+  font-weight: 500;
+  color: #2d2d2d;
+  font-size: 1rem;
+}
+
+.callback__field input,
+.callback__field textarea {
+  padding: 12px 14px;
+  border: 1px solid #c8a27c;
+  border-radius: 8px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 1rem;
+  transition: border 0.3s ease;
+  color: #36261a;
+  font-weight: 600;
+}
+
+.callback__field input:focus,
+.callback__field textarea:focus {
+  outline: none;
+  border-color: #c8a27c;
+}
+
+.callback__checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.callback__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #2d2d2d;
+}
+
+.callback__checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #c8a27c;
+}
+
+.callback__submit {
+  margin-top: 10px;
+  padding: 14px 24px;
+  background-color: #a68569;
+  color: #fdf9f0;
+  border: none;
+  border-radius: 8px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.callback__submit:hover {
+  background-color: #8f6e55;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 1024px) {
+  .callback {
+    padding: 0 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .callback__card {
+    padding: 20px;
+  }
+}
