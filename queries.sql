@@ -170,3 +170,82 @@ ORDER BY total_qty DESC;
 SELECT *
 FROM order_stats_mv
 ORDER BY day, status;
+
+-- Q13. Просроченные этапы изготовления (по плановому графику)
+SELECT
+  o.id AS order_id,
+  p.name AS product,
+  rs.step_no,
+  op.name AS operation,
+  w.name AS workshop,
+  rs.status AS step_status,
+  rs.planned_finish,
+  NOW() AS checked_at,
+  ROUND(EXTRACT(EPOCH FROM (NOW() - rs.planned_finish)) / 3600.0, 1) AS hours_overdue
+FROM route_steps rs
+JOIN order_items oi ON oi.id = rs.order_item_id
+JOIN orders o ON o.id = oi.order_id
+JOIN products p ON p.id = oi.product_id
+JOIN operations op ON op.id = rs.operation_id
+LEFT JOIN workshops w ON w.id = rs.workshop_id
+WHERE rs.planned_finish IS NOT NULL
+  AND rs.planned_finish < NOW()
+  AND rs.status <> 'DONE'
+ORDER BY hours_overdue DESC;
+
+-- Q14. Просроченные заказы (по обещанной дате due_date)
+SELECT
+  o.id,
+  c.name AS customer,
+  o.status,
+  o.due_date,
+  (CURRENT_DATE - o.due_date) AS days_overdue,
+  o.priority
+FROM orders o
+JOIN customers c ON c.id = o.customer_id
+WHERE o.due_date IS NOT NULL
+  AND o.due_date < CURRENT_DATE
+  AND o.status NOT IN ('DONE', 'CANCELED')
+ORDER BY days_overdue DESC, o.priority ASC;
+
+-- Q15. Оценка стоимости НЗП (незавершённого производства) по заказам
+-- Принято: 1500 руб/час производственного времени (условная ставка).
+WITH remaining AS (
+  SELECT
+    o.id AS order_id,
+    SUM(COALESCE(rs.planned_minutes, op.default_minutes, 0)) FILTER (WHERE rs.status <> 'DONE') AS remaining_minutes
+  FROM orders o
+  JOIN order_items oi ON oi.order_id = o.id
+  JOIN route_steps rs ON rs.order_item_id = oi.id
+  JOIN operations op ON op.id = rs.operation_id
+  WHERE o.status IN ('PLANNED', 'IN_PROGRESS')
+  GROUP BY o.id
+)
+SELECT
+  r.order_id,
+  r.remaining_minutes,
+  ROUND(r.remaining_minutes / 60.0, 2) AS remaining_hours,
+  1500 AS rate_rub_per_hour,
+  ROUND((r.remaining_minutes / 60.0) * 1500, 0) AS nzp_cost_rub
+FROM remaining r
+ORDER BY nzp_cost_rub DESC;
+
+-- Q16. НЗП по цехам: сколько незавершённых шагов и оценка стоимости по цехам
+WITH wip AS (
+  SELECT
+    w.name AS workshop,
+    SUM(COALESCE(rs.planned_minutes, op.default_minutes, 0)) FILTER (WHERE rs.status <> 'DONE') AS wip_minutes
+  FROM route_steps rs
+  JOIN operations op ON op.id = rs.operation_id
+  LEFT JOIN workshops w ON w.id = rs.workshop_id
+  GROUP BY w.name
+)
+SELECT
+  workshop,
+  wip_minutes,
+  ROUND(wip_minutes / 60.0, 2) AS wip_hours,
+  1500 AS rate_rub_per_hour,
+  ROUND((wip_minutes / 60.0) * 1500, 0) AS wip_cost_rub
+FROM wip
+WHERE wip_minutes > 0
+ORDER BY wip_cost_rub DESC;
